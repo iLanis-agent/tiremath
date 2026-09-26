@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TireMath - honest tire math</title>
+<style>
+  :root { --bg:#12141a; --card:#1a1d26; --ink:#eceef5; --dim:#9ba3b8; --acc:#e0b64e; --hot:#8fd98a; --cold:#d98a8a; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding:28px 24px 8px; max-width:980px; margin:0 auto; display:flex; justify-content:space-between; align-items:baseline; }
+  h1 { margin:0; font-size:28px; }
+  h1 span { color:var(--acc); }
+  nav a { color:var(--dim); text-decoration:none; font-size:14px; }
+  main { max-width:980px; margin:0 auto; padding:16px 24px 60px; display:grid; gap:18px; }
+  .card { background:var(--card); border-radius:14px; padding:20px; }
+  .card h2 { margin:0 0 12px; font-size:13px; letter-spacing:1.5px; color:var(--dim); text-transform:uppercase; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; }
+  label { display:block; font-size:13px; color:var(--dim); margin-bottom:4px; }
+  input, select { width:100%; background:#12141b; border:1px solid #3a4055; color:var(--ink); border-radius:8px; padding:9px 10px; font-size:15px; }
+  .hint { font-size:12.5px; color:var(--dim); margin-top:10px; }
+  button { cursor:pointer; border:0; border-radius:9px; padding:11px 16px; font-size:15px; background:var(--acc); color:#241b07; font-weight:600; }
+  button.ghost { background:#2a2e3d; color:var(--ink); font-weight:500; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+  .verdict { font-size:17px; line-height:1.65; }
+  .verdict b { color:var(--acc); }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-top:16px; }
+  .stat { background:#12141b; border-radius:10px; padding:12px; }
+  .stat .v { font-size:19px; font-weight:700; color:var(--acc); }
+  .stat .k { font-size:12px; color:var(--dim); margin-top:2px; }
+  .badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:12.5px; font-weight:600; margin-left:8px; }
+  .b-invisible, .b-healthy, .b-fresh { background:#1d3320; color:var(--hot); }
+  .b-acceptable, .b-no-snow, .b-old { background:#3a3016; color:var(--acc); }
+  .b-off-limits, .b-wet-risk, .b-illegal, .b-replace, .b-ancient { background:#3a1d1d; color:var(--cold); }
+  .note { margin-top:14px; font-size:13.5px; color:var(--dim); }
+  .note b { color:var(--acc); font-weight:600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Tire<span>Math</span></h1>
+  <nav><a href="index.html">home</a></nav>
+</header>
+<main>
+  <section class="card">
+    <h2>The size swap</h2>
+    <div class="grid">
+      <div><label>Stock size (on the door sticker)</label><input id="stock" value="205/55R16"></div>
+      <div><label>Size you are eyeing</label><input id="swap" value="225/45R17"></div>
+    </div>
+    <p class="hint">The sidewall code is the whole truth: 205 mm wide, sidewall 55% of that, on a 16-inch rim. Bigger rims with shorter sidewalls can keep the diameter - or quietly wreck it.</p>
+  </section>
+
+  <section class="card">
+    <h2>The tread and the birthday</h2>
+    <div class="grid">
+      <div><label>Current tread (32nds of an inch)</label><input id="tread" type="number" step="0.5" value="6"></div>
+      <div><label>Wear rate (32nds per 10k miles)</label><input id="wear" type="number" step="0.5" value="1"></div>
+      <div><label>DOT week</label><input id="dotW" type="number" value="20"></div>
+      <div><label>DOT year</label><input id="dotY" type="number" value="2019"></div>
+    </div>
+    <p class="hint">DOT code is the last 4 digits on the sidewall: week + year of manufacture (2019 = week 20 of 2019). New tires are ~10/32. Legal floor is 2/32 - but rain grip is gone at 4/32 and snow at 6/32.</p>
+    <div class="row">
+      <button id="run">Read my tires honestly</button>
+      <button class="ghost" data-preset="plus">plus-size swap check</button>
+      <button class="ghost" data-preset="penny">the penny-test trap</button>
+      <button class="ghost" data-preset="aged">aged but unworn</button>
+    </div>
+  </section>
+
+  <section class="card" id="result" hidden>
+    <h2>The verdict</h2>
+    <p class="verdict" id="verdictText"></p>
+    <div class="stats" id="stats"></div>
+    <p class="note" id="advice"></p>
+  </section>
+
+  <section class="card">
+    <h2>Why the penny test lies</h2>
+    <p class="note">The penny test sees <b>2/32 of an inch</b> - the legal floor, where a tire is already aquaplaning. Honest limits: <b>4/32 for rain</b>, <b>6/32 for snow</b>. A tire can pass the penny test and still be a wet-road hazard. Size swaps carry their own lie: changing wheel diameter moves the speedometer and the odometer together, and past <b>3% difference</b> the ABS and gearing stop being calibrated to you. And tread is not the only clock - <b>rubber ages from the DOT date</b>, not the install date. Six years is the honest ceiling; ten is the wall, tread or no tread.</p>
+  </section>
+</main>
+<script src="engine.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+
+  var PRESETS = {
+    plus: { stock: '205/55R16', swap: '225/40R18', tread: 8, wear: 1, dotW: 20, dotY: 2023 },
+    penny: { stock: '205/55R16', swap: '205/55R16', tread: 3, wear: 0.5, dotW: 20, dotY: 2022 },
+    aged: { stock: '205/55R16', swap: '205/55R16', tread: 9, wear: 0.5, dotW: 10, dotY: 2015 }
+  };
+  document.querySelectorAll('[data-preset]').forEach(function (b) {
+    b.onclick = function () {
+      var p = PRESETS[b.dataset.preset];
+      Object.keys(p).forEach(function (k) { $(k).value = p[k]; });
+      run();
+    };
+  });
+
+  function run() {
+    var stock = TireMath.parseSize($('stock').value);
+    var swap = TireMath.parseSize($('swap').value);
+    if (!stock || !swap) { alert('Sizes look like 205/55R16.'); return; }
+    var tread = +$('tread').value || 0;
+    var wear = +$('wear').value || 0;
+    var dotW = +$('dotW').value || 0;
+    var dotY = +$('dotY').value || 0;
+    var nowY = new Date().getFullYear();
+
+    var err = TireMath.speedoError(stock, swap);
+    var sv = TireMath.sizeVerdict(err);
+    var tv = TireMath.treadVerdict(tread);
+    var av = TireMath.ageVerdict(dotW, dotY, nowY);
+    var rainLeft = TireMath.milesLeft(tread, wear, TireMath.TREAD_LIMITS.rain);
+    var legalLeft = TireMath.milesLeft(tread, wear, TireMath.TREAD_LIMITS.legal);
+
+    var sameSize = JSON.stringify(stock) === JSON.stringify(swap);
+    var text = '';
+    if (!sameSize) {
+      text += 'The swap changes diameter by <b>' + (err > 0 ? '+' : '') + err + '%</b> - at an indicated 60 you are really doing ' +
+        (Math.round(60 * (1 + err / 100) * 10) / 10) + '. ';
+    }
+    text += 'At ' + tread + '/32 you are <b>' +
+      (rainLeft === Infinity ? 'set for rain indefinitely at this wear rate' : (rainLeft.toLocaleString('en-US') + ' miles from losing honest rain grip')) + '</b>' +
+      (legalLeft !== Infinity && isFinite(legalLeft) ? ' (' + legalLeft.toLocaleString('en-US') + ' to the legal floor)' : '') + '. ';
+    text += 'The tires themselves are ' + (nowY - dotY) + ' years old.';
+
+    var worst = sv.code === 'off-limits' ? sv : (av.code === 'replace' || av.code === 'ancient') ? av : (tv.code === 'illegal' || tv.code === 'wet-risk') ? tv : sv.code !== 'invisible' ? sv : tv.code !== 'healthy' ? tv : av.code !== 'fresh' ? av : sv;
+    $('verdictText').innerHTML = text + ' <span class="badge b-' + worst.code + '">' + worst.label + '</span>';
+
+    var stats = [
+      { v: TireMath.diameterIn(stock) + '"', k: 'stock diameter' },
+      { v: sameSize ? 'same' : (TireMath.diameterIn(swap) + '"'), k: sameSize ? 'no swap entered' : 'new diameter (' + (err > 0 ? '+' : '') + err + '%)' },
+      { v: TireMath.revsPerMile(stock).toLocaleString('en-US'), k: 'revs per mile (stock)' },
+      { v: tread + '/32', k: TireMath.pennyTruth(tread).split(' - ')[0] },
+      { v: rainLeft === Infinity ? '-' : rainLeft.toLocaleString('en-US') + ' mi', k: 'to the 4/32 rain limit' },
+      { v: (nowY - dotY) + ' yrs', k: av.label }
+    ];
+    $('stats').innerHTML = stats.map(function (x) {
+      return '<div class="stat"><div class="v">' + x.v + '</div><div class="k">' + x.k + '</div></div>';
+    }).join('');
+
+    var advice;
+    if (av.code === 'replace' || av.code === 'ancient') {
+      advice = 'Tread depth is not the question anymore - ' + (nowY - dotY) + '-year-old rubber has hardened regardless of miles. A tire shop date-stamping these "like new" is selling you the tread and hiding the birthday.';
+    } else if (tv.code === 'wet-risk') {
+      advice = 'This is the penny-test trap: legally fine, practically done in rain. Wet stopping distance at 3/32 is nearly double a new tire. The replacement conversation is now, not at 2/32.';
+    } else if (sv.code === 'off-limits') {
+      advice = 'Outside 3% the speedometer, odometer and ABS all stop telling the truth, and fender clearance becomes a question. Pick a size that keeps the diameter, not just the look.';
+    } else if (tv.code === 'no-snow') {
+      advice = 'Fine for rain, but snow traction needs 6/32. If winter is coming, these are a three-season tire now.';
+    } else {
+      advice = 'Rotate every 8-10k miles and measure all four - edge wear on one tire is an alignment bill arriving early, not a tire problem.';
+    }
+    $('advice').innerHTML = advice;
+
+    $('result').hidden = false;
+    $('result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  $('run').onclick = run;
+})();
+</script>
+</body>
+</html>
